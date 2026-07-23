@@ -1,0 +1,426 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ESD Knowledge Graph Viewer</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0f172a;
+      --panel: #111827;
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+      --line: #334155;
+      --risk: #f1c40f;
+      --sensor: #3498db;
+      --material: #9b59b6;
+      --context: #1abc9c;
+      --activity: #e67e22;
+      --mitigation: #2ecc71;
+      --increase: #ef4444;
+      --reduce: #22c55e;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Inter, Segoe UI, system-ui, sans-serif;
+    }
+
+    main {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+
+    header {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 18px;
+    }
+
+    h1 {
+      margin: 0 0 6px;
+      font-size: 28px;
+      font-weight: 750;
+    }
+
+    p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 320px;
+      gap: 18px;
+    }
+
+    .graph, aside {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+
+    .graph {
+      min-height: 680px;
+      overflow: hidden;
+    }
+
+    svg {
+      width: 100%;
+      height: 680px;
+      display: block;
+    }
+
+    aside {
+      padding: 16px;
+    }
+
+    label {
+      display: block;
+      margin: 14px 0 6px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 650;
+    }
+
+    select {
+      width: 100%;
+      padding: 9px 10px;
+      border-radius: 6px;
+      border: 1px solid #475569;
+      background: #0b1220;
+      color: var(--text);
+      font: inherit;
+    }
+
+    .legend {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 18px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .swatch {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      display: inline-block;
+      margin-right: 8px;
+    }
+
+    .paths {
+      margin-top: 18px;
+      padding-top: 14px;
+      border-top: 1px solid var(--line);
+    }
+
+    .paths h2 {
+      margin: 0 0 10px;
+      font-size: 16px;
+    }
+
+    .paths div {
+      padding: 9px 10px;
+      border: 1px solid #7f1d1d;
+      background: #3f1111;
+      border-radius: 6px;
+      margin-bottom: 8px;
+      color: #fecaca;
+      font-size: 13px;
+      line-height: 1.4;
+    }
+
+    .edge {
+      stroke: var(--increase);
+      stroke-width: 1.8;
+      opacity: 0.32;
+      marker-end: url(#arrow-increase);
+    }
+
+    .edge.reduce {
+      stroke: var(--reduce);
+      marker-end: url(#arrow-reduce);
+    }
+
+    .edge.active {
+      stroke-width: 4.5;
+      opacity: 1;
+    }
+
+    .node circle {
+      stroke: white;
+      stroke-width: 1.5;
+      filter: drop-shadow(0 6px 10px rgb(0 0 0 / 0.28));
+    }
+
+    .node.active circle {
+      stroke-width: 4;
+    }
+
+    .node text {
+      fill: white;
+      font-size: 13px;
+      text-anchor: middle;
+      paint-order: stroke;
+      stroke: #111827;
+      stroke-width: 4px;
+      stroke-linejoin: round;
+    }
+
+    .edge-label {
+      fill: #cbd5e1;
+      font-size: 11px;
+      text-anchor: middle;
+      paint-order: stroke;
+      stroke: #111827;
+      stroke-width: 4px;
+      stroke-linejoin: round;
+    }
+
+    @media (max-width: 900px) {
+      .layout { grid-template-columns: 1fr; }
+      header { align-items: start; flex-direction: column; }
+      .graph, svg { min-height: 560px; height: 560px; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <div>
+        <h1>ESD Knowledge Graph</h1>
+        <p>Rule-based context used by the XAI explanation layer. Active paths change with the selected scenario.</p>
+      </div>
+      <p id="count"></p>
+    </header>
+
+    <div class="layout">
+      <section class="graph">
+        <svg viewBox="0 0 1040 680" role="img" aria-label="ESD risk knowledge graph">
+          <defs>
+            <marker id="arrow-increase" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#ef4444"></path>
+            </marker>
+            <marker id="arrow-reduce" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#22c55e"></path>
+            </marker>
+          </defs>
+          <g id="edges"></g>
+          <g id="labels"></g>
+          <g id="nodes"></g>
+        </svg>
+      </section>
+
+      <aside>
+        <label for="scenario">Scenario</label>
+        <select id="scenario">
+          <option value="normal">Normal</option>
+          <option value="high_risk">High risk</option>
+          <option value="recovery">Recovery</option>
+        </select>
+
+        <label for="fabric">Fabric</label>
+        <select id="fabric">
+          <option value="cotton">Cotton</option>
+          <option value="polyester">Polyester</option>
+          <option value="wool">Wool</option>
+          <option value="synthetic">Synthetic</option>
+        </select>
+
+        <label for="environment">Environment</label>
+        <select id="environment">
+          <option value="office">Office</option>
+          <option value="lab">Lab</option>
+          <option value="outdoor">Outdoor</option>
+          <option value="home">Home</option>
+        </select>
+
+        <label for="activity">Activity</label>
+        <select id="activity">
+          <option value="sitting">Sitting</option>
+          <option value="walking">Walking</option>
+          <option value="running">Running</option>
+          <option value="handling_electronics">Handling electronics</option>
+        </select>
+
+        <div class="legend">
+          <span><i class="swatch" style="background:var(--sensor)"></i>Sensor</span>
+          <span><i class="swatch" style="background:var(--material)"></i>Material</span>
+          <span><i class="swatch" style="background:var(--context)"></i>Context</span>
+          <span><i class="swatch" style="background:var(--activity)"></i>Activity</span>
+          <span><i class="swatch" style="background:var(--mitigation)"></i>Mitigation</span>
+          <span><i class="swatch" style="background:var(--risk)"></i>Risk</span>
+        </div>
+
+        <div class="paths">
+          <h2>Active Reasoning Paths</h2>
+          <div id="path-list"></div>
+        </div>
+      </aside>
+    </div>
+  </main>
+
+  <script>
+    const nodes = [
+      ["ESD_Risk", "concept", 520, 310],
+      ["Humidity", "sensor", 255, 170],
+      ["ElectricField", "sensor", 255, 280],
+      ["ContactVoltage", "sensor", 255, 400],
+      ["Movement", "sensor", 80, 400],
+      ["Polyester", "material", 80, 510],
+      ["Wool", "material", 180, 570],
+      ["Synthetic", "material", 20, 570],
+      ["Cotton", "material", 35, 485],
+      ["Lab", "environment", 790, 190],
+      ["Office", "environment", 790, 295],
+      ["HandlingElectronics", "activity", 820, 415],
+      ["WristStrap", "mitigation", 520, 570],
+      ["Grounding", "mitigation", 670, 535],
+      ["HumidityControl", "mitigation", 75, 110],
+    ];
+
+    const edges = [
+      ["Humidity", "ESD_Risk", "inversely affects", 0.35],
+      ["ElectricField", "ESD_Risk", "directly causes", 0.30],
+      ["ContactVoltage", "ESD_Risk", "directly causes", 0.25],
+      ["Movement", "ContactVoltage", "generates", 0.20],
+      ["Polyester", "ContactVoltage", "amplifies", 0.30],
+      ["Wool", "ContactVoltage", "amplifies", 0.25],
+      ["Synthetic", "ContactVoltage", "amplifies", 0.28],
+      ["Lab", "ESD_Risk", "increases impact", 0.20],
+      ["Office", "ESD_Risk", "increases impact", 0.15],
+      ["HandlingElectronics", "ESD_Risk", "maximises impact", 0.25],
+      ["WristStrap", "ESD_Risk", "mitigates", -0.80],
+      ["Grounding", "ESD_Risk", "mitigates", -0.70],
+      ["HumidityControl", "Humidity", "increases", 0.60],
+    ];
+
+    const colorByType = {
+      concept: "#f1c40f",
+      sensor: "#3498db",
+      material: "#9b59b6",
+      environment: "#1abc9c",
+      activity: "#e67e22",
+      mitigation: "#2ecc71",
+    };
+
+    const pos = Object.fromEntries(nodes.map(([id, type, x, y]) => [id, {type, x, y}]));
+    const edgeKey = (from, to) => `${from}->${to}`;
+
+    function activeState() {
+      const scenario = document.querySelector("#scenario").value;
+      const fabric = document.querySelector("#fabric").value;
+      const environment = document.querySelector("#environment").value;
+      const activity = document.querySelector("#activity").value;
+      const activeEdges = new Set();
+      const activeNodes = new Set(["ESD_Risk"]);
+      const paths = [];
+
+      function activate(from, to, label) {
+        activeEdges.add(edgeKey(from, to));
+        activeNodes.add(from);
+        activeNodes.add(to);
+        paths.push(label);
+      }
+
+      if (scenario === "high_risk") {
+        activate("Humidity", "ESD_Risk", "Low humidity -> increased static buildup");
+        activate("ElectricField", "ESD_Risk", "High E-field -> direct ESD risk");
+        activate("ContactVoltage", "ESD_Risk", "High contact voltage -> discharge risk");
+        activate("Movement", "ContactVoltage", "Movement -> charge generation");
+      } else if (scenario === "recovery") {
+        activate("HumidityControl", "Humidity", "Humidity control -> safer dissipation");
+        activate("Grounding", "ESD_Risk", "Grounding -> mitigates ESD risk");
+      }
+
+      if (["polyester", "wool", "synthetic"].includes(fabric)) {
+        const node = {polyester: "Polyester", wool: "Wool", synthetic: "Synthetic"}[fabric];
+        activate(node, "ContactVoltage", `${node} -> amplifies contact voltage`);
+        activeEdges.add(edgeKey("ContactVoltage", "ESD_Risk"));
+        activeNodes.add("ContactVoltage");
+      }
+      if (["lab", "office"].includes(environment)) {
+        const node = environment === "lab" ? "Lab" : "Office";
+        activate(node, "ESD_Risk", `${node} -> increases impact risk`);
+      }
+      if (activity === "handling_electronics") {
+        activate("HandlingElectronics", "ESD_Risk", "Handling electronics -> maximum component impact");
+      }
+
+      return {activeEdges, activeNodes, paths};
+    }
+
+    function draw() {
+      const {activeEdges, activeNodes, paths} = activeState();
+      const edgeRoot = document.querySelector("#edges");
+      const labelRoot = document.querySelector("#labels");
+      const nodeRoot = document.querySelector("#nodes");
+      edgeRoot.replaceChildren();
+      labelRoot.replaceChildren();
+      nodeRoot.replaceChildren();
+
+      edges.forEach(([from, to, relation, weight]) => {
+        const a = pos[from];
+        const b = pos[to];
+        const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        line.setAttribute("x1", a.x);
+        line.setAttribute("y1", a.y);
+        line.setAttribute("x2", b.x);
+        line.setAttribute("y2", b.y);
+        line.setAttribute("class", `edge ${weight < 0 ? "reduce" : ""} ${activeEdges.has(edgeKey(from, to)) ? "active" : ""}`);
+        edgeRoot.append(line);
+
+        const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        label.setAttribute("x", (a.x + b.x) / 2);
+        label.setAttribute("y", (a.y + b.y) / 2 - 8);
+        label.setAttribute("class", "edge-label");
+        label.textContent = relation;
+        labelRoot.append(label);
+      });
+
+      nodes.forEach(([id, type, x, y]) => {
+        const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
+        group.setAttribute("class", `node ${activeNodes.has(id) ? "active" : ""}`);
+        const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+        circle.setAttribute("cx", x);
+        circle.setAttribute("cy", y);
+        circle.setAttribute("r", id === "ESD_Risk" ? 31 : activeNodes.has(id) ? 25 : 20);
+        circle.setAttribute("fill", colorByType[type]);
+        const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        text.setAttribute("x", x);
+        text.setAttribute("y", y + 43);
+        text.textContent = id.replaceAll("_", " ");
+        group.append(circle, text);
+        nodeRoot.append(group);
+      });
+
+      document.querySelector("#count").textContent = `${nodes.length} entities · ${edges.length} relationships`;
+      const pathList = document.querySelector("#path-list");
+      pathList.replaceChildren();
+      if (paths.length === 0) {
+        pathList.textContent = "No high-risk paths active in current conditions.";
+        return;
+      }
+      paths.forEach(path => {
+        const item = document.createElement("div");
+        item.textContent = path;
+        pathList.append(item);
+      });
+    }
+
+    document.querySelectorAll("select").forEach(select => select.addEventListener("change", draw));
+    draw();
+  </script>
+</body>
+</html>
