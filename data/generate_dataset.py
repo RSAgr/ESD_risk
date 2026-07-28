@@ -20,6 +20,7 @@ Risk Labels:
 """
 
 from pathlib import Path
+from datetime import datetime, timedelta
 
 import numpy as np
 import pandas as pd
@@ -132,8 +133,10 @@ fabric_types = np.random.choice(
     p=[0.30, 0.35, 0.15, 0.20]
 )
 
-# Timestamps
-timestamps = pd.date_range("2024-01-01", periods=N_SAMPLES, freq="20ms")
+# Timestamps. Build these with the standard library because some bleeding-edge
+# pandas/Python combinations crash inside pd.date_range for millisecond offsets.
+start_time = datetime(2024, 1, 1)
+timestamps = [start_time + timedelta(milliseconds=20 * i) for i in range(N_SAMPLES)]
 
 # ── assemble DataFrame ────────────────────────────────────────
 df = pd.DataFrame({
