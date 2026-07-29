@@ -13,6 +13,9 @@ Provides:
 import os, sys, time
 import numpy as np
 import pandas as pd
+OUTPUT_DIR = os.path.dirname(__file__)
+os.environ.setdefault("MPLCONFIGDIR", os.path.join(OUTPUT_DIR, ".matplotlib"))
+os.makedirs(os.environ["MPLCONFIGDIR"], exist_ok=True)
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
@@ -25,7 +28,6 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 FEATURE_NAMES = ["Humidity (%)", "Temperature (°C)", "E-Field (V/m)", "Contact Voltage (V)", "Movement (g)"]
 RISK_LABELS   = ["Low", "Medium", "High"]
 RISK_COLORS   = ["#2ecc71", "#f39c12", "#e74c3c"]
-OUTPUT_DIR    = os.path.dirname(__file__)
 
 import shap
 import torch
@@ -187,22 +189,67 @@ class GradientExplainer:
         return np.mean(all_importance, axis=0)
 
 
-def plot_global_importance(importances, save=True):
+# def plot_global_importance(importances, save=True):
+#     """Bar chart of feature importances."""
+#     fig, ax = plt.subplots(figsize=(8, 4))
+#     colors = ["#3498db" if i < 3 else "#9b59b6" for i in range(len(FEATURE_NAMES))]
+#     bars = ax.barh(FEATURE_NAMES, importances, color=colors, edgecolor="white", height=0.6)
+#     ax.set_xlabel("Mean |Gradient × Input| Importance", fontsize=11)
+#     ax.set_title("ESD Risk — Feature Importance (Global)", fontsize=13, fontweight="bold")
+#     ax.spines[["top","right"]].set_visible(False)
+#     for bar, val in zip(bars, importances):
+#         ax.text(val + 0.001, bar.get_y() + bar.get_height()/2,
+#                 f"{val:.3f}", va="center", fontsize=9)
+#     plt.tight_layout()
+#     path = os.path.join(OUTPUT_DIR, "global_importance.png")
+#     if save:
+#         plt.savefig(path, dpi=150, bbox_inches="tight")
+#         print(f"  Saved: {path}")
+#     plt.close()
+#     return path
+
+def plot_global_importance(
+    importances,
+    title="ESD Risk — Feature Importance (Global)",
+    xlabel="Feature Importance",
+    filename="global_importance.png",
+    save=True,
+):
     """Bar chart of feature importances."""
     fig, ax = plt.subplots(figsize=(8, 4))
-    colors = ["#3498db" if i < 3 else "#9b59b6" for i in range(len(FEATURE_NAMES))]
-    bars = ax.barh(FEATURE_NAMES, importances, color=colors, edgecolor="white", height=0.6)
-    ax.set_xlabel("Mean |Gradient × Input| Importance", fontsize=11)
-    ax.set_title("ESD Risk — Feature Importance (Global)", fontsize=13, fontweight="bold")
-    ax.spines[["top","right"]].set_visible(False)
+
+    colors = ["#3498db" if i < 3 else "#9b59b6"
+              for i in range(len(FEATURE_NAMES))]
+
+    bars = ax.barh(
+        FEATURE_NAMES,
+        importances,
+        color=colors,
+        edgecolor="white",
+        height=0.6,
+    )
+
+    ax.set_xlabel(xlabel, fontsize=11)
+    ax.set_title(title, fontsize=13, fontweight="bold")
+    ax.spines[["top", "right"]].set_visible(False)
+
     for bar, val in zip(bars, importances):
-        ax.text(val + 0.001, bar.get_y() + bar.get_height()/2,
-                f"{val:.3f}", va="center", fontsize=9)
+        ax.text(
+            val + 0.001,
+            bar.get_y() + bar.get_height()/2,
+            f"{val:.3f}",
+            va="center",
+            fontsize=9,
+        )
+
     plt.tight_layout()
-    path = os.path.join(OUTPUT_DIR, "global_importance.png")
+
+    path = os.path.join(OUTPUT_DIR, filename)
+
     if save:
         plt.savefig(path, dpi=150, bbox_inches="tight")
         print(f"  Saved: {path}")
+
     plt.close()
     return path
 
@@ -269,7 +316,7 @@ def plot_attention_map(model, numerical, categoricals, device, save=True):
     signal_labels = ["Humidity", "Temperature", "E-Field", "Voltage", "Movement"]
     signal_colors = ["#2ecc71", "#e67e22", "#e74c3c", "#9b59b6", "#3498db"]
     for i, (lbl, col) in enumerate(zip(signal_labels, signal_colors)):
-        normed = (num_np[:, i] - num_np[:, i].min()) / (num_np[:, i].ptp() + 1e-8)
+        normed = (num_np[:, i] - num_np[:, i].min()) / (np.ptp(num_np[:, i]) + 1e-8)
         axes[1].plot(normed + i * 1.1, label=lbl, color=col, linewidth=1.2)
     axes[1].set_xlabel("Time steps", fontsize=10)
     axes[1].set_ylabel("Normalised sensor signals", fontsize=9)
