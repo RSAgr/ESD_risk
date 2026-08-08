@@ -284,10 +284,17 @@
       ["Cotton", "material", 35, 485],
       ["Lab", "environment", 790, 190],
       ["Office", "environment", 790, 295],
+      ["Outdoor", "environment", 940, 235],
+      ["Home", "environment", 940, 335],
+      ["Sitting", "activity", 960, 500],
+      ["Walking", "activity", 850, 560],
+      ["Running", "activity", 745, 585],
       ["HandlingElectronics", "activity", 820, 415],
       ["WristStrap", "mitigation", 520, 570],
       ["Grounding", "mitigation", 670, 535],
       ["HumidityControl", "mitigation", 75, 110],
+      ["AntistaticMat", "mitigation", 395, 605],
+      ["Ionizer", "mitigation", 165, 60],
     ];
 
     const edges = [
@@ -298,12 +305,20 @@
       ["Polyester", "ContactVoltage", "amplifies", 0.30],
       ["Wool", "ContactVoltage", "amplifies", 0.25],
       ["Synthetic", "ContactVoltage", "amplifies", 0.28],
+      ["Cotton", "ContactVoltage", "dampens", -0.12],
       ["Lab", "ESD_Risk", "increases impact", 0.20],
       ["Office", "ESD_Risk", "increases impact", 0.15],
+      ["Outdoor", "Humidity", "varies", 0.10],
+      ["Home", "ESD_Risk", "moderates impact", 0.08],
+      ["Sitting", "Movement", "limits", -0.08],
+      ["Walking", "Movement", "increases", 0.15],
+      ["Running", "Movement", "strongly increases", 0.25],
       ["HandlingElectronics", "ESD_Risk", "maximises impact", 0.25],
       ["WristStrap", "ESD_Risk", "mitigates", -0.80],
       ["Grounding", "ESD_Risk", "mitigates", -0.70],
       ["HumidityControl", "Humidity", "increases", 0.60],
+      ["AntistaticMat", "ContactVoltage", "dissipates", -0.55],
+      ["Ionizer", "ElectricField", "neutralises", -0.45],
     ];
 
     const colorByType = {
@@ -350,9 +365,23 @@
         activeEdges.add(edgeKey("ContactVoltage", "ESD_Risk"));
         activeNodes.add("ContactVoltage");
       }
-      if (["lab", "office"].includes(environment)) {
-        const node = environment === "lab" ? "Lab" : "Office";
-        activate(node, "ESD_Risk", `${node} -> increases impact risk`);
+      if (["lab", "office", "home"].includes(environment)) {
+        const node = {lab: "Lab", office: "Office", home: "Home"}[environment];
+        activate(node, "ESD_Risk", `${node} -> changes impact risk`);
+      }
+      if (environment === "outdoor") {
+        activate("Outdoor", "Humidity", "Outdoor -> variable humidity");
+        activeEdges.add(edgeKey("Humidity", "ESD_Risk"));
+        activeNodes.add("Humidity");
+      }
+      if (["sitting", "walking", "running"].includes(activity)) {
+        const node = {sitting: "Sitting", walking: "Walking", running: "Running"}[activity];
+        activate(node, "Movement", `${node} -> changes movement`);
+        if (["walking", "running"].includes(activity)) {
+          activeEdges.add(edgeKey("Movement", "ContactVoltage"));
+          activeEdges.add(edgeKey("ContactVoltage", "ESD_Risk"));
+          activeNodes.add("ContactVoltage");
+        }
       }
       if (activity === "handling_electronics") {
         activate("HandlingElectronics", "ESD_Risk", "Handling electronics -> maximum component impact");

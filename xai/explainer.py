@@ -442,10 +442,17 @@ KNOWLEDGE_GRAPH = {
         {"id": "Cotton",           "type": "material"},
         {"id": "Lab",              "type": "environment"},
         {"id": "Office",           "type": "environment"},
+        {"id": "Outdoor",          "type": "environment"},
+        {"id": "Home",             "type": "environment"},
+        {"id": "Sitting",          "type": "activity"},
+        {"id": "Walking",          "type": "activity"},
+        {"id": "Running",          "type": "activity"},
         {"id": "HandlingElectronics", "type": "activity"},
         {"id": "WristStrap",       "type": "mitigation"},
         {"id": "Grounding",        "type": "mitigation"},
         {"id": "HumidityControl",  "type": "mitigation"},
+        {"id": "AntistaticMat",    "type": "mitigation"},
+        {"id": "Ionizer",          "type": "mitigation"},
     ],
     "edges": [
         {"from": "Humidity",         "to": "ESD_Risk",    "relation": "inversely_affects", "weight": 0.35},
@@ -455,14 +462,131 @@ KNOWLEDGE_GRAPH = {
         {"from": "Polyester",        "to": "ContactVoltage", "relation": "amplifies",      "weight": 0.30},
         {"from": "Wool",             "to": "ContactVoltage", "relation": "amplifies",      "weight": 0.25},
         {"from": "Synthetic",        "to": "ContactVoltage", "relation": "amplifies",      "weight": 0.28},
+        {"from": "Cotton",           "to": "ContactVoltage", "relation": "dampens",        "weight": -0.12},
         {"from": "Lab",              "to": "ESD_Risk",    "relation": "increases_impact",  "weight": 0.20},
         {"from": "Office",           "to": "ESD_Risk",    "relation": "increases_impact",  "weight": 0.15},
+        {"from": "Outdoor",          "to": "Humidity",     "relation": "varies",            "weight": 0.10},
+        {"from": "Home",             "to": "ESD_Risk",    "relation": "moderates_impact",  "weight": 0.08},
+        {"from": "Sitting",          "to": "Movement",     "relation": "limits",            "weight": -0.08},
+        {"from": "Walking",          "to": "Movement",     "relation": "increases",         "weight": 0.15},
+        {"from": "Running",          "to": "Movement",     "relation": "strongly_increases", "weight": 0.25},
         {"from": "HandlingElectronics", "to": "ESD_Risk", "relation": "maximises_impact",  "weight": 0.25},
         {"from": "WristStrap",       "to": "ESD_Risk",    "relation": "mitigates",         "weight": -0.8},
         {"from": "Grounding",        "to": "ESD_Risk",    "relation": "mitigates",         "weight": -0.7},
         {"from": "HumidityControl",  "to": "Humidity",    "relation": "increases",         "weight": 0.6},
+        {"from": "AntistaticMat",    "to": "ContactVoltage", "relation": "dissipates",     "weight": -0.55},
+        {"from": "Ionizer",          "to": "ElectricField", "relation": "neutralises",      "weight": -0.45},
     ]
 }
+
+
+KG_POSITIONS = {
+    "ESD_Risk": (0.0, 0.0),
+    "Humidity": (-1.7, 0.75),
+    "ElectricField": (-1.7, 0.18),
+    "ContactVoltage": (-1.7, -0.42),
+    "Movement": (-3.05, -0.42),
+    "Polyester": (-3.05, -1.0),
+    "Wool": (-2.4, -1.28),
+    "Synthetic": (-3.65, -1.28),
+    "Cotton": (-3.7, -0.78),
+    "Lab": (1.65, 0.62),
+    "Office": (1.65, 0.08),
+    "Outdoor": (2.55, 0.42),
+    "Home": (2.55, -0.08),
+    "Sitting": (3.0, -0.85),
+    "Walking": (2.4, -1.15),
+    "Running": (1.75, -1.05),
+    "HandlingElectronics": (1.8, -0.52),
+    "WristStrap": (0.15, -1.42),
+    "Grounding": (0.95, -1.25),
+    "HumidityControl": (-2.95, 1.05),
+    "AntistaticMat": (-0.65, -1.62),
+    "Ionizer": (-1.15, 1.35),
+}
+
+KG_TYPE_COLORS = {
+    "concept": "#f1c40f",
+    "sensor": "#3498db",
+    "material": "#9b59b6",
+    "environment": "#1abc9c",
+    "activity": "#e67e22",
+    "mitigation": "#2ecc71",
+}
+
+
+def save_knowledge_graph_png(path=None):
+    """Save the current ESD knowledge graph as a PNG."""
+    path = path or os.path.join(OUTPUT_DIR, "knowledge_graph.png")
+    kg = get_knowledge_graph()
+
+    fig, ax = plt.subplots(figsize=(13.5, 8), facecolor="#111827")
+    ax.set_facecolor("#111827")
+    ax.axis("off")
+
+    for edge in kg["edges"]:
+        source = edge["from"]
+        target = edge["to"]
+        x0, y0 = KG_POSITIONS[source]
+        x1, y1 = KG_POSITIONS[target]
+        color = "#2ecc71" if edge["weight"] < 0 else "#e74c3c"
+        ax.annotate(
+            "",
+            xy=(x1, y1),
+            xytext=(x0, y0),
+            arrowprops=dict(arrowstyle="->", color=color, lw=1.5, alpha=0.58),
+        )
+        ax.text(
+            (x0 + x1) / 2,
+            (y0 + y1) / 2 + 0.04,
+            edge["relation"].replace("_", " "),
+            color="#cbd5e1",
+            fontsize=7,
+            ha="center",
+            va="center",
+            alpha=0.85,
+        )
+
+    for node in kg["nodes"]:
+        node_id = node["id"]
+        x, y = KG_POSITIONS[node_id]
+        color = KG_TYPE_COLORS.get(node["type"], "#95a5a6")
+        size = 1200 if node_id == "ESD_Risk" else 720
+        ax.scatter(x, y, s=size, c=color, edgecolors="white", linewidths=1.6, zorder=3)
+        ax.text(
+            x,
+            y - 0.17,
+            node_id.replace("_", " "),
+            color="#f8fafc",
+            fontsize=8,
+            ha="center",
+            va="top",
+            weight="bold" if node_id == "ESD_Risk" else "normal",
+            zorder=4,
+        )
+
+    legend_handles = [
+        mpatches.Patch(color=color, label=node_type.title())
+        for node_type, color in KG_TYPE_COLORS.items()
+    ]
+    ax.legend(
+        handles=legend_handles,
+        loc="upper center",
+        bbox_to_anchor=(0.5, -0.02),
+        ncol=6,
+        frameon=False,
+        labelcolor="#f8fafc",
+        fontsize=8,
+    )
+    ax.set_title("ESD Risk Knowledge Graph", color="#f8fafc", fontsize=16, weight="bold", pad=16)
+    ax.set_xlim(-4.05, 3.25)
+    ax.set_ylim(-1.9, 1.6)
+
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    plt.savefig(path, dpi=180, bbox_inches="tight", facecolor=fig.get_facecolor())
+    plt.close(fig)
+    return path
+
 
 def get_knowledge_graph():
     return KNOWLEDGE_GRAPH

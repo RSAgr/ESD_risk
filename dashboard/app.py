@@ -155,10 +155,17 @@ KG_POSITIONS = {
     "Cotton": (-3.7, -0.78),
     "Lab": (1.65, 0.62),
     "Office": (1.65, 0.08),
+    "Outdoor": (2.55, 0.42),
+    "Home": (2.55, -0.08),
+    "Sitting": (3.0, -0.85),
+    "Walking": (2.4, -1.15),
+    "Running": (1.75, -1.05),
     "HandlingElectronics": (1.8, -0.52),
     "WristStrap": (0.15, -1.42),
     "Grounding": (0.95, -1.25),
     "HumidityControl": (-2.95, 1.05),
+    "AntistaticMat": (-0.65, -1.62),
+    "Ionizer": (-1.15, 1.35),
 }
 
 KG_TYPE_COLORS = {
@@ -197,9 +204,20 @@ def active_knowledge_graph_paths(kg, reading, fabric, environment, activity):
         activate(fabric_node, "ContactVoltage", f"{fabric.capitalize()} fabric -> amplifies Contact Voltage")
         active_edges.add(("ContactVoltage", "ESD_Risk"))
         active_nodes.update(["ContactVoltage", "ESD_Risk"])
-    if environment in ["lab", "office"]:
-        env_node = {"lab": "Lab", "office": "Office"}[environment]
-        activate(env_node, "ESD_Risk", f"{environment.capitalize()} environment -> increases impact risk")
+    if environment in ["lab", "office", "home"]:
+        env_node = {"lab": "Lab", "office": "Office", "home": "Home"}[environment]
+        activate(env_node, "ESD_Risk", f"{environment.capitalize()} environment -> changes impact risk")
+    if environment == "outdoor":
+        activate("Outdoor", "Humidity", "Outdoor environment -> variable humidity")
+        active_edges.add(("Humidity", "ESD_Risk"))
+        active_nodes.update(["Humidity", "ESD_Risk"])
+    if activity in ["sitting", "walking", "running"]:
+        activity_node = {"sitting": "Sitting", "walking": "Walking", "running": "Running"}[activity]
+        activate(activity_node, "Movement", f"{activity.replace('_', ' ').capitalize()} -> changes charge-generating movement")
+        if activity in ["walking", "running"]:
+            active_edges.add(("Movement", "ContactVoltage"))
+            active_edges.add(("ContactVoltage", "ESD_Risk"))
+            active_nodes.update(["ContactVoltage", "ESD_Risk"])
     if activity == "handling_electronics":
         activate("HandlingElectronics", "ESD_Risk", "Handling electronics -> maximises ESD impact")
 
